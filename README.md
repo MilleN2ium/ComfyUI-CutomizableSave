@@ -1,6 +1,6 @@
 # What is for?
 
-image save with customized name rule
+save your image with customized naming rule
 
 # How to?
 
