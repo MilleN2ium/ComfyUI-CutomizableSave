@@ -13,6 +13,10 @@ from PIL.PngImagePlugin import PngInfo
 import folder_paths
 
 class AdvancedSave:
+    # --- FIX: 세션 기반 카운터 ---
+    # 세션 카운터 (ComfyUI 재시작 시 초기화)
+    SESSION_COUNTER = 0
+
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
         self.type = "output"
@@ -58,6 +62,7 @@ class AdvancedSave:
         else:
             full_output_folder = os.path.join(self.output_dir, directory_name)
         
+        os.makedirs(full_output_folder, exist_ok=True)
         print(f"--- [My_Nodes] Debug: Final output folder path: '{full_output_folder}'")
 
         print(f"--- [My_Nodes] Debug: Received raw filename_pattern string: '{filename_pattern}'")
@@ -69,9 +74,7 @@ class AdvancedSave:
             filename_template = f"{filename_prefix}_{seed}_[counter]"
 
         print(f"--- [My_Nodes] Debug: Filename template: '{filename_template}'")
-
-        os.makedirs(full_output_folder, exist_ok=True)
-
+        
         metadata = PngInfo()
         if prompt is not None:
             metadata.add_text("prompt", json.dumps(prompt))
@@ -96,10 +99,14 @@ class AdvancedSave:
             
             now = datetime.now()
 
+            # --- FIX: 세션 카운터 사용 ---
+            # 클래스 변수에 저장된 세션 카운터 값을 사용하고, 이미지 저장 후 1 증가시킵니다.
+            counter_value = AdvancedSave.SESSION_COUNTER
+            
             replacements = {
                 "[prefix]": filename_prefix,
                 "[seed]": str(seed),
-                "[counter]": f"{counter:05}",
+                "[counter]": f"{counter_value:05}",
                 "[date]": now.strftime("%Y-%m-%d"),
                 "[time]": now.strftime("%H-%M-%S"),
                 "[width]": str(img.width),
@@ -110,9 +117,9 @@ class AdvancedSave:
             for keyword, value in replacements.items():
                 final_filename = final_filename.replace(keyword, value)
 
-            file_path = os.path.join(full_output_folder, f"{final_filename}.png")
+            file_path = os.path.join(full_output_folder, f"{final_filename}.{format}")
             
-            print(f"--- [My_Nodes] Debug: Preparing to save image {idx + 1}/{len(images)} to path: '{file_path}'")
+            print(f"--- [My_Nodes] Debug: Preparing to save image {idx + 1}/{len(images)} to path: '{file_path}' with counter {counter_value}")
             
             try:
                 img.save(file_path, pnginfo=metadata, compress_level=self.compress_level)
@@ -125,9 +132,10 @@ class AdvancedSave:
                 "subfolder": os.path.relpath(full_output_folder, self.output_dir).replace('\\', '/'),
                 "type": self.type
             })
-            counter += 1
+            
+            AdvancedSave.SESSION_COUNTER += 1
         
-        print(f"--- [My_Nodes] Debug: Finished processing. Returning UI data for {len(results)} image(s).")
+        print(f"--- [My_Nodes] Debug: Finished processing. Session counter is now {AdvancedSave.SESSION_COUNTER}.")
         return {"ui": {"images": results}}
 
 print("--- [My_Nodes] Debug: Finished loading advancedsave.py and defined AdvancedSave class ---")

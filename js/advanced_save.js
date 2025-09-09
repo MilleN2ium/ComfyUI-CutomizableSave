@@ -121,7 +121,7 @@ app.registerExtension({
                 dropArea.className = "advsave-container advsave-drop-area";
 
                 const AVAILABLE_ITEMS = {
-                    "[prefix]": "Prefix", "[seed]": "Seed", "[counter]": "Counter", "[date]": "Date",
+                    "[prefix]": "Prefix", "[seed]": "Seed", "[counter]": "Counter (Session)", "[date]": "Date",
                     "[time]": "Time", "[width]": "Width", "[height]": "Height"
                 };
                 
