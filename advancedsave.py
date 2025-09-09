@@ -31,12 +31,13 @@ class AdvancedSave:
         return {
             "required": {
                 "images": ("IMAGE",),
-                # --- 수정된 부분 ---
-                # 백엔드 유효성 검사 오류를 피하기 위해 일반 문자열 입력으로 변경합니다.
-                # UI는 여전히 JS에 의해 동적 콤보 박스로 표시됩니다.
                 "directory": ("STRING", {"default": ""}),
                 "filename_prefix": ("STRING", {"default": "ComfyUI"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                # --- FIX: format 입력 형식 수정 ---
+                "format": (["png", "jpg", "webp"],),
+                # --- FIX: quality 기본값을 100으로 변경 ---
+                "quality": ("INT", {"default": 100, "min": 1, "max": 100}),
                 "filename_pattern": ("STRING", {
                     "default": '["[prefix]", "_", "[seed]", "_", "[counter]"]',
                     "multiline": True
@@ -50,13 +51,12 @@ class AdvancedSave:
     OUTPUT_NODE = True
     CATEGORY = "MilleN2ium"
 
-    def save_images_custom(self, images, directory, filename_prefix="ComfyUI", seed=0, filename_pattern='[]', prompt=None, extra_pnginfo=None):
+    def save_images_custom(self, images, directory, filename_prefix="ComfyUI", seed=0, format="png", quality=85, filename_pattern='[]', prompt=None, extra_pnginfo=None):
         print(f"--- [My_Nodes] Debug: save_images_custom called. Received {len(images)} image(s). ---")
         
         directory_name = directory
         print(f"--- [My_Nodes] Debug: Selected directory name: '{directory_name}'")
 
-        # 경로 조작 방지를 위해 기본적인 검사를 수행합니다.
         if not directory_name or ".." in directory_name or directory_name.startswith("/"):
             full_output_folder = self.output_dir
         else:
@@ -83,14 +83,6 @@ class AdvancedSave:
                 metadata.add_text(key, json.dumps(value))
         
         print(f"--- [My_Nodes] Debug: Metadata prepared.")
-
-        try:
-            image_height, image_width = images[0].shape[1], images[0].shape[2]
-            _, _, counter, _, _ = folder_paths.get_save_image_path(filename_prefix, full_output_folder, image_width, image_height)
-        except IndexError:
-            counter = 1
-            
-        print(f"--- [My_Nodes] Debug: Initial counter value: {counter}")
 
         results = []
         for idx, image in enumerate(images):
@@ -122,13 +114,20 @@ class AdvancedSave:
             print(f"--- [My_Nodes] Debug: Preparing to save image {idx + 1}/{len(images)} to path: '{file_path}' with counter {counter_value}")
             
             try:
-                img.save(file_path, pnginfo=metadata, compress_level=self.compress_level)
+                if format == 'png':
+                    img.save(file_path, pnginfo=metadata, compress_level=self.compress_level)
+                elif format == 'jpg':
+                    # JPEG는 알파 채널을 지원하지 않으므로 RGB로 변환합니다.
+                    img.convert("RGB").save(file_path, quality=quality, optimize=True)
+                else:
+                    # WebP 및 기타 형식 저장
+                    img.save(file_path, quality=quality)
                 print(f"--- [My_Nodes] Debug: Successfully executed save for image {idx + 1}.")
             except Exception as e:
                 print(f"--- [My_Nodes] CRITICAL ERROR: Failed to save image {idx + 1}. Reason: {e}")
 
             results.append({
-                "filename": f"{final_filename}.png",
+                "filename": f"{final_filename}.{format}",
                 "subfolder": os.path.relpath(full_output_folder, self.output_dir).replace('\\', '/'),
                 "type": self.type
             })
